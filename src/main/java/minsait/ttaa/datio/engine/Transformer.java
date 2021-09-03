@@ -37,6 +37,11 @@ public class Transformer extends Writer {
     private Dataset<Row> columnSelection(Dataset<Row> df) {
         return df.select(
                 shortName.column(),
+                longName.column(),
+                weight.column(),
+                nationality.column(),
+                clubName.column(),
+                potential.column(),
                 overall.column(),
                 heightCm.column(),
                 teamPosition.column(),
