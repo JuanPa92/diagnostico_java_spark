@@ -4,8 +4,6 @@ import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.expressions.Window;
-import org.apache.spark.sql.expressions.WindowSpec;
 import org.jetbrains.annotations.NotNull;
 
 import static minsait.ttaa.datio.common.Common.*;
@@ -23,11 +21,12 @@ public class Transformer extends Writer {
         df.printSchema();
 
         df = cleanData(df);
-        df = exampleWindowFunction(df);
+//      df = exampleWindowFunction(df);
+        df = ageRangeFilter(df);
         df = columnSelection(df);
 
         // for show 100 records after your transformations and show the Dataset schema
-        df.show(100, false);
+        df.show(20, false);
         df.printSchema();
 
         // Uncomment when you want write your final output
@@ -38,14 +37,16 @@ public class Transformer extends Writer {
         return df.select(
                 shortName.column(),
                 longName.column(),
-                weight.column(),
+                age.column(),
+                heightCm.column(),
+                weightKg.column(),
                 nationality.column(),
                 clubName.column(),
-                potential.column(),
                 overall.column(),
-                heightCm.column(),
+                potential.column(),
                 teamPosition.column(),
-                catHeightByPosition.column()
+//              catHeightByPosition.column(),
+                ageRange.column()
         );
     }
 
@@ -85,23 +86,42 @@ public class Transformer extends Writer {
      * cat B for if is in 50 players tallest
      * cat C for the rest
      */
-    private Dataset<Row> exampleWindowFunction(Dataset<Row> df) {
-        WindowSpec w = Window
-                .partitionBy(teamPosition.column())
-                .orderBy(heightCm.column().desc());
+//    private Dataset<Row> exampleWindowFunction(Dataset<Row> df) {
+//        WindowSpec w = Window
+//                .partitionBy(teamPosition.column())
+//                .orderBy(heightCm.column().desc());
+//
+//        Column rank = rank().over(w);
+//
+//        Column rule = when(rank.$less(10), "A")
+//                .when(rank.$less(50), "B")
+//                .otherwise("C");
+//
+//        df = df.withColumn(catHeightByPosition.getName(), rule);
+//
+//        return df;
+//    }
 
-        Column rank = rank().over(w);
+    /**
+     * @param df is a Dataset with players information (must have age)
+     * @return add to the Dataset the column "cat_age_range"
+     * by each position value
+     * cat A for if age is less than 23
+     * cat B for if age is between 23 and 26
+     * cat C for if age is between 27 and 31
+     * cat D for the rest
+     */
+    private Dataset<Row> ageRangeFilter(Dataset<Row> df) {
 
-        Column rule = when(rank.$less(10), "A")
-                .when(rank.$less(50), "B")
-                .otherwise("C");
+        Column rule = when(age.column().lt(23), "A")
+          .when(age.column().lt(27), "B")
+          .when(age.column().lt(32), "C")
+          .otherwise("D");
 
-        df = df.withColumn(catHeightByPosition.getName(), rule);
+        df = df.withColumn(ageRange.getName(), rule);
 
         return df;
     }
-
-
 
 
 }
