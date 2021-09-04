@@ -4,6 +4,8 @@ import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.expressions.Window;
+import org.apache.spark.sql.expressions.WindowSpec;
 import org.jetbrains.annotations.NotNull;
 
 import static minsait.ttaa.datio.common.Common.*;
@@ -21,12 +23,12 @@ public class Transformer extends Writer {
         df.printSchema();
 
         df = cleanData(df);
-//      df = exampleWindowFunction(df);
+        df = rankByNationalityWindow(df);
         df = ageRangeFilter(df);
         df = columnSelection(df);
 
         // for show 100 records after your transformations and show the Dataset schema
-        df.show(20, false);
+        df.show(100, false);
         df.printSchema();
 
         // Uncomment when you want write your final output
@@ -45,8 +47,8 @@ public class Transformer extends Writer {
                 overall.column(),
                 potential.column(),
                 teamPosition.column(),
-//              catHeightByPosition.column(),
-                ageRange.column()
+                ageRange.column(),
+                rankByNationalityPosition.column()
         );
     }
 
@@ -79,31 +81,25 @@ public class Transformer extends Writer {
     }
 
     /**
-     * @param df is a Dataset with players information (must have team_position and height_cm columns)
-     * @return add to the Dataset the column "cat_height_by_position"
-     * by each position value
-     * cat A for if is in 20 players tallest
-     * cat B for if is in 50 players tallest
-     * cat C for the rest
+     * @param df is a Dataset with players information (must have nationality, team_position and overall)
+     * @return add to the Dataset the column "rank_by_nationality_position"
+     * ranking by nationality and team position and sorting it out by the
+     * overall column
      */
-//    private Dataset<Row> exampleWindowFunction(Dataset<Row> df) {
-//        WindowSpec w = Window
-//                .partitionBy(teamPosition.column())
-//                .orderBy(heightCm.column().desc());
-//
-//        Column rank = rank().over(w);
-//
-//        Column rule = when(rank.$less(10), "A")
-//                .when(rank.$less(50), "B")
-//                .otherwise("C");
-//
-//        df = df.withColumn(catHeightByPosition.getName(), rule);
-//
-//        return df;
-//    }
+    private Dataset<Row> rankByNationalityWindow(Dataset<Row> df) {
+        WindowSpec w = Window
+                .partitionBy(nationality.column(), teamPosition.column())
+                .orderBy(overall.column().desc());
+
+        Column rule = row_number().over(w);
+
+        df = df.withColumn(rankByNationalityPosition.getName(), rule);
+
+        return df;
+    }
 
     /**
-     * @param df is a Dataset with players information (must have age)
+     * @param df is a Dataset with players information (must have age column)
      * @return add to the Dataset the column "cat_age_range"
      * by each position value
      * cat A for if age is less than 23
