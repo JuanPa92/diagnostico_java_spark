@@ -22,10 +22,10 @@ public class Transformer extends Writer {
 
         df.printSchema();
 
-        df = cleanData(df);
         df = rankByNationalityWindow(df);
         df = ageRangeFilter(df);
-        df = potentialVsOverall(df);
+        df = getPotentialVsOverall(df);
+        df = cleanData(df);
         df = columnSelection(df);
 
         // for show 100 records after your transformations and show the Dataset schema
@@ -33,7 +33,7 @@ public class Transformer extends Writer {
         df.printSchema();
 
         // Uncomment when you want write your final output
-        //write(df);
+        write(df);
     }
 
     private Dataset<Row> columnSelection(Dataset<Row> df) {
@@ -68,14 +68,38 @@ public class Transformer extends Writer {
     /**
      * @param df
      * @return a Dataset with filter transformation applied
-     * column team_position != null && column short_name != null && column overall != null
+     * column rank_by_nationality_position != null && column age_range != null && column potential_vs_overall != null
      */
     private Dataset<Row> cleanData(Dataset<Row> df) {
+
+        Column notNull = rankByNationalityPosition.column().isNotNull().and(
+                ageRange.column().isNotNull()
+        ).and(
+                potentialVsOverall.column().isNotNull()
+        );
+
+        Column firstCondition = rankByNationalityPosition.column().lt(3);
+        Column secondCondition = potentialVsOverall.column().gt(1.15).and(
+            ageRange.column().equalTo("B").or(
+            ageRange.column().equalTo("C")
+          )
+        );
+        Column thirdCondition = ageRange.column().equalTo("A").and(
+            potentialVsOverall.column().gt(1.25)
+        );
+        Column fourthCondition = ageRange.column().equalTo("D").and(
+            rankByNationalityPosition.column().lt(5)
+        );
+
         df = df.filter(
-                teamPosition.column().isNotNull().and(
-                        shortName.column().isNotNull()
-                ).and(
-                        overall.column().isNotNull()
+                notNull.and(
+                    firstCondition.or(
+                      secondCondition
+                    ).or(
+                      thirdCondition
+                    ).or(
+                      fourthCondition
+                    )
                 )
         );
 
@@ -126,7 +150,7 @@ public class Transformer extends Writer {
      * @return add to the Dataset the column "potential_vs_overall"
      * with the calculation potential/overall
      */
-    private Dataset<Row> potentialVsOverall(Dataset<Row> df) {
+    private Dataset<Row> getPotentialVsOverall(Dataset<Row> df) {
 
         Column rule = potential.column().$div( overall.column() );
 
